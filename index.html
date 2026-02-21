@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>MDT System</title>
+
+<style>
+body { background:#0a0f1c; color:#e5e7eb; font-family:Arial; margin:0; }
+
+header{
+background:#020617;
+padding:14px;
+font-size:20px;
+letter-spacing:1px;
+border-bottom:1px solid #1f2937;
+}
+
+.card{
+background:#020617;
+border:1px solid #1f2937;
+padding:14px;
+margin:14px;
+border-radius:8px;
+}
+
+input,select,textarea{
+width:100%;
+padding:8px;
+margin-top:6px;
+background:#020617;
+border:1px solid #1f2937;
+color:white;
+border-radius:6px;
+}
+
+button{
+margin-top:10px;
+padding:10px;
+background:#1d4ed8;
+border:none;
+border-radius:6px;
+cursor:pointer;
+color:white;
+}
+
+.list{max-height:320px;overflow:auto;margin-top:10px}
+.item{border-bottom:1px solid #1f2937;padding:10px}
+
+.tag{padding:2px 6px;border-radius:4px;font-size:12px;background:#1d4ed8}
+.status{font-size:12px;opacity:.7}
+
+.search{margin-bottom:10px}
+</style>
+</head>
+
+<body>
+
+<header>MDT • Mobile Data Terminal</header>
+
+<div class="card">
+<input id="search" class="search" placeholder="Wyszukaj osobę / sprawę..." oninput="renderAll()">
+
+<select id="tab" onchange="switchTab()">
+<option value="bolo">BOLO</option>
+<option value="mandaty">Mandaty</option>
+<option value="raporty">Raporty</option>
+<option value="wyroki">Wyroki</option>
+</select>
+</div>
+
+<div id="bolo" class="card">
+<h3>Nowe BOLO</h3>
+<input id="bolo-imie" placeholder="Imię">
+<input id="bolo-nazwisko" placeholder="Nazwisko">
+<select id="bolo-status">
+<option>Aktywne</option>
+<option>Zatrzymany</option>
+<option>Anulowane</option>
+</select>
+<textarea id="bolo-opis" placeholder="Opis zdarzenia"></textarea>
+<input id="bolo-funk" placeholder="Numer odznaki">
+<button onclick="add('bolo')">Dodaj BOLO</button>
+<div class="list" id="bolo-list"></div>
+</div>
+
+<div id="mandaty" class="card" style="display:none">
+<h3>Mandat</h3>
+<input id="mandaty-imie" placeholder="Imię">
+<input id="mandaty-nazwisko" placeholder="Nazwisko">
+<input id="mandaty-kwota" type="number" placeholder="Kwota">
+<textarea id="mandaty-opis" placeholder="Powód"></textarea>
+<input id="mandaty-funk" placeholder="Numer odznaki">
+<button onclick="add('mandaty')">Wystaw mandat</button>
+<div class="list" id="mandaty-list"></div>
+</div>
+
+<div id="raporty" class="card" style="display:none">
+<h3>Raport służbowy</h3>
+<textarea id="raporty-opis" placeholder="Opis interwencji"></textarea>
+<input id="raporty-funk" placeholder="Numer odznaki">
+<button onclick="add('raporty')">Dodaj raport</button>
+<div class="list" id="raporty-list"></div>
+</div>
+
+<div id="wyroki" class="card" style="display:none">
+<h3>Wyrok</h3>
+<input id="wyroki-imie" placeholder="Imię">
+<input id="wyroki-nazwisko" placeholder="Nazwisko">
+<input id="wyroki-kara" placeholder="Kara">
+<textarea id="wyroki-opis" placeholder="Powód"></textarea>
+<input id="wyroki-funk" placeholder="Sędzia">
+<button onclick="add('wyroki')">Dodaj wyrok</button>
+<div class="list" id="wyroki-list"></div>
+</div>
+
+<script>
+const WEBHOOKS={
+bolo:"https://discordapp.com/api/webhooks/1474822516831944796/QODjnMwS344OxsiQKDW-g6aOlqzEnRNlIVe47Iwtq8bNNh5gF_nTKJzn0jYvuLPk6Qka",
+mandaty:"https://discordapp.com/api/webhooks/1461830613228064940/Ub0r3uDXgjIDPtqwml6iGF_vf5HdaVlVO2HWc9AUolsqraVf7I-QPdomKnY1JpaGNrAN",
+raporty:"https://discordapp.com/api/webhooks/1461831293322006600/010lm-N6Yb1P5-rEG2LfJxfLmurKC_nudCjS8c4RMS6CEbEe_ab-eU41sLeYEwgkwH0B",
+wyroki:"https://discordapp.com/api/webhooks/1461830861208031253/y5QgwI2rJQAGXt_AZUamFC_HXsr3eEIyNtBYyBpBnJbYwRfVKMTU9zwk68gqiUmL80RP"
+};
+
+function id(){
+return Math.floor(Math.random()*900000+100000);
+}
+
+function add(type){
+const data={id:id(),time:new Date().toLocaleString()};
+document.querySelectorAll(`#${type} input,#${type} textarea,#${type} select`)
+.forEach(el=>data[el.id.replace(type+"-","")]=el.value);
+
+let list=JSON.parse(localStorage.getItem(type)||"[]");
+list.unshift(data);
+localStorage.setItem(type,JSON.stringify(list));
+
+sendWebhook(type,data);
+render(type);
+}
+
+function render(type){
+const q=document.getElementById("search").value.toLowerCase();
+const list=JSON.parse(localStorage.getItem(type)||[]);
+document.getElementById(type+"-list").innerHTML=list
+.filter(i=>JSON.stringify(i).toLowerCase().includes(q))
+.map(i=>`
+<div class="item">
+<div><b>#${i.id}</b> • ${i.time}</div>
+<div>${Object.values(i).slice(2).join(" | ")}</div>
+</div>`).join("");
+}
+
+function renderAll(){
+["bolo","mandaty","raporty","wyroki"].forEach(render);
+}
+
+function switchTab(){
+document.querySelectorAll(".card").forEach(c=>{
+if(["bolo","mandaty","raporty","wyroki"].includes(c.id))c.style.display="none";
+});
+document.getElementById(tab.value).style.display="block";
+}
+
+function sendWebhook(type,data){
+const url=WEBHOOKS[type];
+if(url.includes("WSTAW"))return;
+
+fetch(url,{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({
+embeds:[{
+title:"MDT • "+type.toUpperCase(),
+description:Object.entries(data).map(([k,v])=>`**${k}**: ${v}`).join("\n"),
+color:3447003
+}]
+})
+});
+}
+
+renderAll();
+</script>
+</body>
+</html>
